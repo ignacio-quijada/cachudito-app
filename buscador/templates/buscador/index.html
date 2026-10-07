@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cachudito | Brújula de Terreno y Colecta Legal en Chile</title>
+    <!-- Tailwind CSS por CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS & JS para el Mapa Interactivo -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body class="bg-stone-100 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- ================= NAVBAR (Corona Negra + Acento Amarillo Cachudito) ================= -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 border-b border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="{% url 'home' %}" class="flex items-center gap-3 group">
+                <!-- Ícono SVG con el penacho característico del Cachudito -->
+                <div class="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-sm group-hover:scale-105 transition">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 2C9 2 10.5 4.5 10 6.5C11.5 4.5 13.5 3 15 3C14 5 13.5 6.5 13.5 7.5C16.5 8 19 10.5 19 14C19 15 21.5 15.5 22 16C20 16.8 18.8 16.8 18 17.5C16.8 19.8 14.2 21 11 21C6.5 21 3 17.5 3 13C3 9.5 5.2 6.8 8 6C7.8 4.2 9 2 9 2ZM14.5 12C13.95 12 13.5 12.45 13.5 13C13.5 13.55 13.95 14 14.5 14C15.05 14 15.5 13.55 15.5 13C15.5 12.45 15.05 12 14.5 12Z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-extrabold text-xl tracking-tight text-white">Cachudito</span>
+                        <span class="text-[11px] bg-amber-400/15 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
+                            v0.1 Chile
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">
+                        No quedes cachudo en terreno: dónde encontrar especies y si es legal recolectarlas
+                    </p>
+                </div>
+            </a>
+
+            <!-- Accesos rápidos a la API DRF -->
+            <div class="flex items-center gap-2">
+                <a href="/api/especies-rce/" target="_blank"
+                   class="text-xs sm:text-sm bg-slate-800 hover:bg-slate-700 text-stone-200 px-3 py-2 rounded-lg border border-slate-700 transition font-medium">
+                    ⚖️ API RCE
+                </a>
+                <a href="/api/analizar/?especie={{ especie_buscada|urlencode }}&ciudad={{ ciudad_buscada|urlencode }}" target="_blank"
+                   class="text-xs sm:text-sm bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-2 rounded-lg transition">
+                    { } JSON
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================= CONTENIDO PRINCIPAL ================= -->
+    <main class="max-w-6xl mx-auto w-full px-4 py-6 space-y-6 flex-1">
+
+        <!-- 1. BUSCADOR PRINCIPAL -->
+        <section class="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-stone-200">
+            <h2 class="text-lg sm:text-xl font-bold text-slate-900 mb-1">
+                ¿Qué especie necesitas encontrar o recolectar?
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-500 mb-4">
+                Escribe el nombre común o científico y tu comuna o ciudad de partida en Chile.
+            </p>
+
+            <form method="GET" action="{% url 'home' %}" class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <div class="md:col-span-5">
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Especie (Común o Científico)</label>
+                    <input type="text" name="especie" value="{{ especie_buscada }}" required
+                        class="w-full px-4 py-3 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-base font-medium"
+                        placeholder="Ej: Queule, Arrayán, Copihue, Peumo...">
+                </div>
+
+                <div class="md:col-span-4">
+                    <label class="block text-xs font-bold uppercase text-slate-600 mb-1">Comuna o Ciudad de Origen</label>
+                    <input type="text" name="ciudad" value="{{ ciudad_buscada }}" required
+                        class="w-full px-4 py-3 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 text-base font-medium"
+                        placeholder="Ej: Hualpén, Concepción, Valdivia...">
+                </div>
+
+                <div class="md:col-span-3 flex items-end">
+                    <button type="submit"
+                        class="w-full bg-emerald-700 hover:bg-emerald-800 active:scale-[0.99] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-2 text-base cursor-pointer">
+                        <span>🧭</span> Analizar Terreno
+                    </button>
+                </div>
+            </form>
+
+            <!-- Botones de prueba rápida para un clic en el celular -->
+            <div class="mt-3 pt-3 border-t border-stone-100 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-slate-400 font-semibold">Pruebas rápidas:</span>
+                <a href="?especie=Queule&ciudad={{ ciudad_buscada }}" class="px-2.5 py-1 rounded-full bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100 font-medium">🔴 Queule</a>
+                <a href="?especie=Copihue&ciudad={{ ciudad_buscada }}" class="px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 font-medium">🟡 Copihue</a>
+                <a href="?especie=Luma+apiculata&ciudad={{ ciudad_buscada }}" class="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 font-medium">🟢 Arrayán</a>
+                <a href="?especie=Peumo&ciudad={{ ciudad_buscada }}" class="px-2.5 py-1 rounded-full bg-stone-100 text-slate-700 border border-stone-200 hover:bg-stone-200 font-medium">🌿 Peumo</a>
+            </div>
+        </section>
+
+        <!-- 2. SEMÁFORO LEGAL DE RECOLECCIÓN (Dinámico según RCE) -->
+        {% with legal=resultado.dictamen_legal %}
+        {% if legal.semaforo == 'ROJA' %}
+        <section class="bg-rose-50 border-2 border-rose-600 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-rose-200">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🔴</span>
+                    <div>
+                        <span class="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white">
+                            Prohibida su Colecta o Corta
+                        </span>
+                        <h3 class="text-lg font-extrabold text-rose-950 mt-0.5">
+                            <em>{{ legal.nombre_cientifico }}</em> — "{{ legal.nombre_comun }}"
+                        </h3>
+                    </div>
+                </div>
+                <div class="text-xs font-semibold text-rose-900 bg-rose-100 px-3 py-1.5 rounded-lg self-start sm:self-center">
+                    Categoría: <strong>{{ legal.categoria_nombre }} ({{ legal.categoria_codigo }})</strong> • Familia: {{ legal.familia }}
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-rose-900 space-y-1">
+                <p><strong>⚖️ Normativa Chilena:</strong> {{ legal.decreto }} ({{ legal.origen }}).</p>
+                <p class="bg-white/80 p-2.5 rounded-lg border border-rose-200 text-slate-800 mt-2">
+                    <strong>💡 Consejo para estudiantes:</strong> No recolectar material vegetal para herbario. Realiza registro fotográfico detallado de órganos diagnósticos (hojas, corteza, flor/fruto) y anota la coordenada GPS.
+                </p>
+            </div>
+        </section>
+
+        {% elif legal.semaforo == 'AMARILLA' %}
+        <section class="bg-amber-50 border-2 border-amber-500 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-amber-200">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🟡</span>
+                    <div>
+                        <span class="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500 text-slate-950">
+                            Colecta Restringida / Precaución
+                        </span>
+                        <h3 class="text-lg font-extrabold text-amber-950 mt-0.5">
+                            <em>{{ legal.nombre_cientifico }}</em> — "{{ legal.nombre_comun }}"
+                        </h3>
+                    </div>
+                </div>
+                <div class="text-xs font-semibold text-amber-900 bg-amber-100 px-3 py-1.5 rounded-lg self-start sm:self-center">
+                    Categoría: <strong>{{ legal.categoria_nombre }} ({{ legal.categoria_codigo }})</strong> • Familia: {{ legal.familia }}
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-amber-900 space-y-1">
+                <p><strong>⚖️ Normativa Chilena:</strong> {{ legal.decreto }} ({{ legal.origen }}).</p>
+                <p class="bg-white/80 p-2.5 rounded-lg border border-amber-200 text-slate-800 mt-2">
+                    <strong>💡 Consejo para estudiantes:</strong> Especie bajo amenaza o regulación especial. Prioriza fotografía científica; no arranques individuos completos ni raíces.
+                </p>
+            </div>
+        </section>
+
+        {% else %}
+        <section class="bg-emerald-50 border-2 border-emerald-600 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🟢</span>
+                    <div>
+                        <span class="text-xs font-extrabold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-700 text-white">
+                            Colecta Ética Permitida (Fuera de SNASPE)
+                        </span>
+                        <h3 class="text-lg font-extrabold text-emerald-950 mt-0.5">
+                            <em>{{ legal.nombre_cientifico }}</em> — "{{ legal.nombre_comun }}"
+                        </h3>
+                    </div>
+                </div>
+                <div class="text-xs font-semibold text-emerald-900 bg-emerald-100 px-3 py-1.5 rounded-lg self-start sm:self-center">
+                    Estado: <strong>{{ legal.categoria_nombre }}</strong> • Familia: {{ legal.familia }}
+                </div>
+            </div>
+            <div class="mt-3 text-sm text-emerald-950 space-y-1">
+                <p><strong>⚖️ Respaldo:</strong> {{ legal.decreto }}</p>
+                <p class="bg-white/80 p-2.5 rounded-lg border border-emerald-200 text-slate-800 mt-2">
+                    <strong>💡 Consejo de herborización:</strong> Recolecta solo una ramilla representativa con estructuras reproductivas si existen, fuera de Parques o Reservas Nacionales (SNASPE).
+                </p>
+            </div>
+        </section>
+        {% endif %}
+        {% endwith %}
+
+        <!-- 3. MAPA INTERACTIVO + RANKING DE ZONAS -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- COLUMNA ZONAS (Sale primero en celular para lectura inmediata) -->
+            <div class="lg:col-span-5 space-y-3 order-1 lg:order-2">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-base sm:text-lg">
+                            🏆 Zonas con Mayor Probabilidad
+                        </h3>
+                        <p class="text-xs text-slate-500">
+                            Saliendo desde: <strong>{{ resultado.ciudad_origen.nombre }}</strong>
+                        </p>
+                    </div>
+                    <span class="text-xs font-bold bg-amber-400 text-slate-950 px-2.5 py-1 rounded-full">
+                        Radio ~45 km
+                    </span>
+                </div>
+
+                {% if resultado.zonas_recomendadas %}
+                    {% for zona in resultado.zonas_recomendadas %}
+                    <div onclick="centrarMapa({{ zona.latitud|stringformat:'f' }}, {{ zona.longitud|stringformat:'f' }})"
+                         class="bg-white rounded-2xl p-4 border {% if forloop.first %}border-2 border-emerald-600{% else %}border-stone-200{% endif %} shadow-sm hover:shadow-md transition cursor-pointer">
+                        <div class="flex justify-between items-start gap-2">
+                            <div>
+                                <span class="text-xs font-bold {% if forloop.first %}text-emerald-700{% else %}text-slate-500{% endif %} uppercase">
+                                    {% if forloop.first %}🥇 Zona #1 Recomendada{% else %}📍 Opción #{{ forloop.counter }}{% endif %}
+                                </span>
+                                <h4 class="font-bold text-slate-900 text-base leading-snug">
+                                    {{ zona.sector }}
+                                </h4>
+                                <p class="text-xs text-slate-500 mt-0.5">
+                                    🚗 A <strong>{{ zona.distancia_km }} km</strong> del punto de partida ({{ zona.latitud }}, {{ zona.longitud }})
+                                </p>
+                            </div>
+                            <div class="{% if forloop.first %}bg-amber-400 text-slate-950{% else %}bg-stone-200 text-slate-800{% endif %} font-black px-3 py-1.5 rounded-xl text-center shrink-0">
+                                <div class="text-lg leading-none">{{ zona.probabilidad_exito }}%</div>
+                                <div class="text-[10px] uppercase font-bold">Éxito</div>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-2.5 border-t border-stone-100 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                            <div class="bg-stone-50 p-2 rounded-lg">
+                                📊 <strong>{{ zona.total_registros }} registros</strong> GBIF
+                                {% if zona.registros_mes_actual > 0 %}
+                                    <span class="text-emerald-700 font-bold">({{ zona.registros_mes_actual }} este mes)</span>
+                                {% endif %}
+                            </div>
+                            <div class="bg-stone-50 p-2 rounded-lg">
+                                🌦️ <strong>{{ zona.clima.temperatura_c }}°C</strong> • Hum: {{ zona.clima.humedad }}%
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="bg-white rounded-2xl p-6 border border-stone-200 text-center space-y-2">
+                        <div class="text-3xl">🔍</div>
+                        <h4 class="font-bold text-slate-800">Sin registros cercanos en GBIF</h4>
+                        <p class="text-xs text-slate-500">
+                            No encontramos coordenadas georreferenciadas de <em>{{ resultado.dictamen_legal.nombre_cientifico }}</em> en un radio de 110 km alrededor de {{ resultado.ciudad_origen.nombre }}. Prueba cambiando la ciudad de salida.
+                        </p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- COLUMNA MAPA INTERACTIVO -->
+            <div class="lg:col-span-7 bg-white p-3 rounded-2xl border border-stone-200 shadow-sm order-2 lg:order-1 flex flex-col">
+                <div id="mapa-terreno" class="w-full h-80 sm:h-[460px] rounded-xl z-10"></div>
+                <p class="text-[11px] text-slate-400 mt-2 text-center">
+                    💡 Toca cualquier tarjeta de zona para volar hacia ese sector en el mapa.
+                </p>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- ================= FOOTER EXPLICANDO EL NOMBRE "CACHUDITO" ================= -->
+    <footer class="bg-slate-900 text-slate-400 text-xs py-6 mt-10 border-t border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p class="max-w-xl text-center sm:text-left">
+                <strong class="text-amber-400">¿Por qué Cachudito?</strong> En honor al cachudito (<em>Anairetes parulus</em> y el endémico <em>Anairetes fernandezianus</em>) y al modismo chileno <em>"quedar cachudo"</em> (quedar con la duda). Creado para que ningún estudiante se quede con la duda en terreno.
+            </p>
+            <p class="text-slate-500 shrink-0">
+                Datos: GBIF API • Open-Meteo • RCE MMA Chile
+            </p>
+        </div>
+    </footer>
+
+    <!-- Datos seguros desde Django hacia JavaScript para pintar el mapa -->
+    {{ resultado|json_script:"datos-cachudito" }}
+
+    <script>
+        const datos = JSON.parse(document.getElementById('datos-cachudito').textContent);
+        const origen = datos.ciudad_origen;
+        const zonas = datos.zonas_recomendadas || [];
+
+        // Inicializar Mapa centrado en la ciudad/comuna elegida
+        const map = L.map('mapa-terreno').setView([origen.latitud, origen.longitud], 11);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap | Cachudito Chile'
+        }).addTo(map);
+
+        // Marcador del punto de partida (Ciudad/Comuna del estudiante)
+        L.marker([origen.latitud, origen.longitud])
+            .addTo(map)
+            .bindPopup(`<b>🏠 Punto de partida:</b><br>${origen.nombre}`);
+
+        // Dibujar círculos de calor para cada Zona Recomendada
+        const grupoCoordenadas = [[origen.latitud, origen.longitud]];
+
+        zonas.forEach((z, index) => {
+         const esPrimera = index === 0;
+         const circulo = L.circle([z.latitud, z.longitud], {
+             color: esPrimera ? '#047857' : '#d97706',
+             fillColor: esPrimera ? '#10b981' : '#fbbf24',
+             fillOpacity: 0.45,
+             weight: 2,
+             radius: 750 // <-- 750 metros de radio (no se sobreponen entre quebradas vecinas)
+         }).addTo(map);
+
+            circulo.bindPopup(
+                `<b>${esPrimera ? '🥇 Zona #1' : '📍 Zona #' + (index + 1)}: ${z.sector}</b><br>` +
+                `🎯 Probabilidad: <b>${z.probabilidad_exito}%</b> (${z.total_registros} reg. GBIF)<br>` +
+                `🚗 Distancia: ${z.distancia_km} km<br>` +
+                `🌦️ Clima actual: ${z.clima.temperatura_c}°C (${z.clima.humedad}% hum)`
+            );
+
+            grupoCoordenadas.push([z.latitud, z.longitud]);
+        });
+
+        // Ajustar el zoom automáticamente para que se vean todas las zonas encontradas
+        if (grupoCoordenadas.length > 1) {
+         map.fitBounds(grupoCoordenadas, { padding: [40, 40], maxZoom: 13 });
+     }
+
+     function centrarMapa(lat, lon) {
+         map.flyTo([lat, lon], 14, { duration: 1.2 });
+     }
+    </script>
+</body>
+</html>
